@@ -3,12 +3,24 @@ package com.banglemove.tickets
 import android.os.Bundle
 import android.view.WindowManager
 import android.webkit.WebChromeClient
+import android.webkit.ValueCallback
+import android.net.Uri
+import android.content.Intent
+import androidx.activity.result.contract.ActivityResultContracts
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
+
+        private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+        private val fileChooserLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+            filePathCallback?.onReceiveValue(uris)
+            filePathCallback = null
+        }
 
     private lateinit var webView: WebView
 
