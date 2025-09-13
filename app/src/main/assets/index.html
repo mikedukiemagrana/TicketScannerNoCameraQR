@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Scanner & Recherche Tickets QR</title>
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js">
+    
+    settingsIcon.addEventListener('mouseleave', () => {
+      setTimeout(() => {
+        if (!settingsMenu.matches(':hover')) {
+          settingsMenu.style.display = 'none';
+        }
+      }, 100);
+    });
+    settingsMenu.addEventListener('mouseenter', () => {
+      settingsMenu.style.display = 'block';
+    });
+    settingsMenu.addEventListener('mouseleave', () => {
+      settingsMenu.style.display = 'none';
+    });
+
+</script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background: #121212;
+      color: #e0e0e0;
+      transition: background 0.3s ease;
+    }
+    #main {
+      position: relative;
+      width: 100%;
+    }
+    
+    
+    @keyframes pagePulse {
+      0% {
+        transform: scale(1);
+        box-shadow: none;
+      }
+      50% {
+        transform: scale(1.2);
+        box-shadow: 0 0 100px rgba(255, 255, 255, 0.8);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: none;
+      }
+    }
+    #main.pulse {
+      animation: pagePulse 0.6s ease-in-out;
+      transform-origin: center center;
+    }
+
+
+    /* Overlay */
+    #overlay {
+      position: fixed; top:50%; left:50%; transform: translate(-50%,-50%);
+      background: rgba(0,0,0,0.8); color:#fff;
+      padding:1rem 2rem; border-radius:0.5rem; font-size:2rem;
+      text-align:center; visibility:hidden; z-index:1000;
+    }
+    /* Input */
+    #input {
+      width:100%; font-size:1.5rem; padding:1rem;
+      background:#2c2c2c; border:1px solid #444;
+      border-radius:4px; color:#fff; box-sizing:border-box;
+    }
+    #message { margin-top:1rem; }
+    .status { display:inline-block; padding:.75rem 1.5rem; border-radius:.25rem; font-size:2rem; color:#fff; }
+    .valid { background:#4caf50; } .error, .checked { background:#f44336; }
+    #counter {
+      position:fixed; bottom:1rem; left:3rem;
+      font-size:.9rem; color:#fff; opacity:.5; pointer-events:none;
+    }
+    /* Settings */
+    
+    #settings-icon {
+      position: fixed;
+      bottom: 1rem;
+      left: 1rem;
+      padding: 0.1rem 0.2rem;
+      border: 1px solid #888;
+      border-radius: 4px;
+      background: transparent;
+      color: #e0e0e0;
+      font-size: 0.6rem;
+      cursor: pointer;
+      z-index: 1001;
+      opacity: 0.5;
+    }
+    #settings-menu {
+      z-index: 1002;
+
+      position:fixed; bottom:2.5rem; left:1rem;
+      background:#1e1e1e; border:1px solid #333; border-radius:4px;
+      padding:.5rem; display:none; z-index:1001;
+    }
+    .qr-item { display:flex; align-items:center; margin-bottom:.5rem; cursor:pointer; }
+    .qr-item img { width:48px; height:48px; margin-right:.5rem; filter:brightness(10%); transition:filter .3s; }
+    .qr-item:hover img { filter:brightness(100%); }
+    .qr-item label { font-size:.9rem; color:#e0e0e0; }
+    /* CSV input */
+    #csv-input {
+      position:fixed; bottom:1rem; right:1rem;
+      font-size:.9rem; color:#fff; opacity:.5;
+    }
+    /* Results table */
+    table {
+      width:100%; border-collapse:collapse;
+      margin-top:1rem; background:#1e1e1e;
+    }
+    th, td {
+      padding:.75rem; border:1px solid #333;
+      color:#e0e0e0; text-align:center;
+    }
+    th { background:#2c2c2c; }
+    tr.valid { background:rgba(76,175,80,0.2); }
+    tr.invalid { background:rgba(200,200,200,0.2); }
+    button.checkin {
+      padding:.5rem 1rem; background:#3a3a3a; color:#e0e0e0;
+      border:1px solid #555; border-radius:4px; cursor:pointer;
+    }
+    button.checkin:hover { background:#4a4a4a; }
+  
+    /* Hide default file input text */
+    
+
+
+    /* Hide the filename text in file input, keep button visible */
+    #csv-input input {
+      font-size: 0;
+    }
+    #csv-input input::file-selector-button {
+      font-size: 0.9rem;
+    }
+    /* For older webkit browsers */
+    #csv-input input::-webkit-file-upload-text {
+      visibility: hidden;
+    }
+    #csv-input input::-webkit-file-upload-button {
+      font-size: 0.9rem;
+    }
+
+  
+    /* Open QR menu on hover */
+    
+
+  
+    
+    /* Intense shake effect for invalid tickets */
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-20px) rotate(-5deg); }
+      50% { transform: translateX(20px) rotate(5deg); }
+      75% { transform: translateX(-20px) rotate(-5deg); }
+      100% { transform: translateX(0) rotate(0deg); }
+    }
+    #main.shake {
+      animation: shake 0.8s ease-in-out;
+      transform-origin: center center;
+    }
+
+
+</style>
+</head>
+<body>
+  <div id="overlay">Ready to scan</div>
+  <div id="main">
+    <input id="input" placeholder="Scannez un ticket ou entrez prénom/nom…" autofocus />
+    <div id="message"></div>
+    <table id="results-table" style="display:none">
+      <thead><tr><th>Ticket ID</th><th>Prénom Nom</th><th>Heure</th><th>Statut</th><th>Action</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div id="counter">Tickets validés : 0 / 0</div>
+
+  <button id="settings-icon">QR</button>
+  <div id="settings-menu">
+    <div class="qr-item"><img src="https://api.qrserver.com/v1/create-qr-code/?size=64x64&data=S_CMD_FFFF"/><label>Factory Settings</label></div>
+    <div class="qr-item"><img src="https://api.qrserver.com/v1/create-qr-code/?size=64x64&data=S_CMD_H0P007"/><label>Belgian Keyboard</label></div>
+    <div class="qr-item"><img src="https://api.qrserver.com/v1/create-qr-code/?size=64x64&data=S_CMD_04F1"/><label>Volume activé</label></div>
+    <div class="qr-item"><img src="https://api.qrserver.com/v1/create-qr-code/?size=64x64&data=S_CMD_04V0"/><label>Volume élevé</label></div>
+    <div class="qr-item"><img src="https://api.qrserver.com/v1/create-qr-code/?size=64x64&data=S_CMD_04F0"/><label>Volume désactivé</label></div>
+  </div>
+
+  <div id="csv-input">Importer .csv: <input type="file" id="csv-file" accept=".csv"/></div>
+
+  <script>
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  document.addEventListener('click', () => audioCtx.resume(), { once: true });
+
+    // Audio feedback functions
+    function playTone(freq, duration, delay = 0, type = 'sine') {
+        const ctx = audioCtx;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = type;
+        osc.start(ctx.currentTime + delay);
+        gain.gain.setValueAtTime(1, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + duration/1000);
+        osc.stop(ctx.currentTime + delay + duration/1000);
+    }
+    
+    
+    function beepSuccess() {
+    const ctx = audioCtx;
+    // Master bus with a gentle compressor for loudness
+    const master = ctx.createGain();
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.setValueAtTime(-18, ctx.currentTime);
+    comp.knee.setValueAtTime(20, ctx.currentTime);
+    comp.ratio.setValueAtTime(12, ctx.currentTime);
+    comp.attack.setValueAtTime(0.003, ctx.currentTime);
+    comp.release.setValueAtTime(0.12, ctx.currentTime);
+    master.gain.setValueAtTime(0.95, ctx.currentTime);
+    master.connect(comp);
+    comp.connect(ctx.destination);
+
+    const t0 = ctx.currentTime;
+
+    // Helper: bright, plucky note (two detuned oscillators + bandpass to emphasize "chime")
+    function pluck(freq, start, dur, level = 0.9) {
+        const o1 = ctx.createOscillator();
+        const o2 = ctx.createOscillator();
+        o1.type = 'sine';
+        o2.type = 'triangle';
+        o2.detune.setValueAtTime(6, start); // slight shimmer
+
+        o1.frequency.setValueAtTime(freq, start);
+        o2.frequency.setValueAtTime(freq, start);
+
+        const g = ctx.createGain();
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(2600, start);
+        bp.Q.setValueAtTime(1.2, start);
+
+        o1.connect(g);
+        o2.connect(g);
+        g.connect(bp);
+        bp.connect(master);
+
+        // snappy pluck envelope
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(level, start + 0.015);
+        g.gain.linearRampToValueAtTime(level * 0.45, start + dur * 0.6);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+        o1.start(start);
+        o2.start(start);
+        o1.stop(start + dur + 0.01);
+        o2.stop(start + dur + 0.01);
+    }
+
+    // Rising, cheerful major-pentatonic arpeggio (C6 D6 E6 G6 A6 C7)
+    const notes = [1046.50, 1174.66, 1318.51, 1567.98, 1760.00, 2093.00];
+    notes.forEach((f, i) => {
+        const start = t0 + i * 0.12;
+        const dur = (i === notes.length - 1) ? 0.28 : 0.22;
+        const lvl = (i === notes.length - 1) ? 1.0 : 0.85;
+        pluck(f, start, dur, lvl);
+    });
+
+    // Small sparkle on the last note to feel extra "positive"
+    const sparkleStart = t0 + (notes.length - 1) * 0.12 + 0.01;
+    [3135.96, 2637.02].forEach((f, idx) => {
+        const o = ctx.createOscillator();
+        o.type = 'sine';
+        const g = ctx.createGain();
+        o.frequency.setValueAtTime(f, sparkleStart + idx * 0.005);
+        o.connect(g);
+        g.connect(master);
+        g.gain.setValueAtTime(0.0001, sparkleStart);
+        g.gain.exponentialRampToValueAtTime(0.35, sparkleStart + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, sparkleStart + 0.12);
+        o.start(sparkleStart);
+        o.stop(sparkleStart + 0.14);
+    });
+}
+
+function beepError() {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        // Harsh descending square wave: A2, E2, A1
+        playTone(110.00, 200, 0, 'square');
+        playTone(82.41, 200, 0.25, 'square');
+        playTone(55.00, 200, 0.50, 'square');
+    }
+
+
+    let tickets = [], validated = new Set(), isSearchMode = false, resetTimer;
+    const overlay = document.getElementById('overlay'),
+          inputEl = document.getElementById('input'),
+          message = document.getElementById('message'),
+          counter = document.getElementById('counter'),
+          table = document.getElementById('results-table'),
+          tbody = table.querySelector('tbody'),
+          main = document.getElementById('main'),
+          settingsIcon = document.getElementById('settings-icon'),
+          settingsMenu = document.getElementById('settings-menu'),
+          csvFile = document.getElementById('csv-file');
+
+    function showOverlay(text, large=false) {
+      document.body.style.background = '#121212';
+      overlay.textContent = text;
+      overlay.style.fontSize = large?'4rem':'2rem';
+      overlay.style.visibility = 'visible';
+    }
+    function hideOverlay() {
+      overlay.style.visibility = 'hidden';
+    }
+
+    
+    function resetTimeout() {
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => {
+        // Hide result table and clear its contents
+        const table = document.getElementById('results-table');
+        const tbody = table.querySelector('tbody');
+        table.style.display = 'none';
+        tbody.innerHTML = '';
+
+        // Clear status message and reset background
+        const messageEl = document.getElementById('message');
+        messageEl.innerHTML = '';
+        document.body.style.background = '#121212';
+
+        // Show overlay
+        showOverlay('Ready to scan', true);
+
+        isSearchMode = false;
+      }, isSearchMode ? 20000 : 10000);
+    }
+
+
+    function updateCounter() {
+      counter.textContent = `Tickets validés : ${validated.size} / ${tickets.length}`;
+    }
+
+    function flashPage() {
+      main.classList.add('pulse');
+      setTimeout(() => main.classList.remove('pulse'), 600);
+    }
+
+    function showMsg(text, cls, name='') {
+      hideOverlay();
+      if (cls === 'valid') { flashPage(); }
+      if (cls === 'valid') beepSuccess(); else { beepError(); main.classList.add('shake'); setTimeout(() => main.classList.remove('shake'), 600); }
+      message.innerHTML = `<span class="status ${cls}">${cls==='valid'?'✔ ':'⚠ '}${(cls!=='valid'?'Attention: ':'')+text+(name?' – '+name:'')}</span>`;
+      document.body.style.background = cls === 'valid' ? '#4caf50' : '#f44336';
+      resetTimeout();
+    }
+
+    function processTicket(id) {
+      isSearchMode = false;
+      hideOverlay();
+      inputEl.value = ''; inputEl.focus();
+      const now = new Date().toLocaleTimeString('fr-FR');
+      const t = tickets.find(x => x.id === id);
+      if (id === 'EASTER_EGG') return showMsg('Happy Scanning ! :)','valid');
+      if (!t) return showMsg('Ticket INVALIDE','error');
+      if (!validated.has(id)) {
+        t.scanTime = now;
+        validated.add(id);
+        updateCounter();
+        save();
+        showMsg('Ticket VALIDE','valid',`${t.first} ${t.last}`);
+      } else {
+        showMsg('Ticket DÉJÀ VALIDÉ','checked',`${t.first} ${t.last}`);
+      }
+      renderRow(t);
+    }
+
+    function renderRow(t) {
+      tbody.innerHTML = '';
+      const tr = document.createElement('tr');
+      tr.className = 'valid';
+      tr.innerHTML = `<td>${t.id}</td><td>${t.first} ${t.last}</td><td>${t.scanTime||''}</td><td>Validé</td><td></td>`;
+      tbody.appendChild(tr);
+      table.style.display = '';
+    }
+
+    function searchName(q) {
+      // Clear residual scan messages and background
+      hideOverlay();
+      main.classList.remove('pulse');
+      document.body.style.background = '#121212';
+      message.innerHTML = '';
+      message.innerHTML = `<span class=\"status\">recherche manuelle : '${q}'</span>`;
+      isSearchMode = true;
+      hideOverlay();
+      inputEl.value = ''; inputEl.focus();
+      tbody.innerHTML = ''; table.style.display = 'none';
+      const matches = tickets.filter(t => t.first.toLowerCase().includes(q) || t.last.toLowerCase().includes(q));
+      if (!matches.length) return showMsg('Ticket non trouvé ou QR erroné','error');
+      matches.forEach(t => {
+        const tr = document.createElement('tr');
+        const v = validated.has(t.id);
+        tr.className = v ? 'valid' : 'invalid';
+        tr.innerHTML = `
+          <td>${t.id}</td>
+          <td>${t.first} ${t.last}</td>
+          <td>${t.scanTime||''}</td>
+          <td>${v?'Validé':'Non validé'}</td>
+          <td>${v?'':'<button class="checkin">Check-in</button>'}</td>`;
+        if (!v) {
+          tr.querySelector('button').addEventListener('click', () => {
+            const now = new Date().toLocaleTimeString('fr-FR');
+            t.scanTime = now;
+            validated.add(t.id);
+            updateCounter(); save();
+            tr.className='valid';
+            tr.children[2].textContent = now;
+            tr.children[3].textContent = 'Validé';
+            tr.children[4].innerHTML = '';
+            showMsg('Ticket VALIDE','valid',`${t.first} ${t.last}`);
+          });
+        }
+        tbody.appendChild(tr);
+      });
+      table.style.display = '';
+      resetTimeout();
+    }
+
+    inputEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const v = inputEl.value.trim();
+        if (!v) return;
+        if (!tickets.some(t=>t.id===v) && v!=='EASTER_EGG') {
+          searchName(v.toLowerCase());
+        } else {
+          processTicket(v);
+        }
+      }
+    });
+    document.addEventListener('click', () => inputEl.focus());
+
+    settingsMenu.addEventListener('click', e => e.stopPropagation());
+
+    function save() {
+      localStorage.setItem('tickets', JSON.stringify(tickets));
+      localStorage.setItem('validated', JSON.stringify([...validated]));
+    }
+    function load() {
+      const s = localStorage.getItem('tickets');
+      if (!s) {
+        showOverlay('Veuillez importer un fichier .csv en provenance de WeTicket.io');
+      } else {
+        tickets = JSON.parse(s);
+        JSON.parse(localStorage.getItem('validated')||'[]').forEach(id => validated.add(id));
+        updateCounter();
+        showOverlay('Ready to scan', true);
+      }
+    }
+
+    csvFile.addEventListener('change', e => {
+      const f = e.target.files[0];
+      if (!f) return showMsg('Aucun fichier sélectionné','error');
+      Papa.parse(f, { header:true, skipEmptyLines:true, complete(res) {
+        const fields = res.meta.fields.map(x=>x.toLowerCase()), map={};
+        res.meta.fields.forEach(x=>map[x.toLowerCase()]=x);
+        ['ticket id','first name','last name','check-in time'].forEach(k=>{ if(!fields.includes(k)) showMsg(`Colonne manquante: ${k}`,'error'); });
+        tickets = res.data.map(r=>({
+          id: r[map['ticket id']]?.trim()||'',
+          first: r[map['first name']]?.trim()||'',
+          last: r[map['last name']]?.trim()||'',
+          scanTime: r[map['check-in time']]?.trim()||'',
+          validated: r[map['check-in time']]?.trim()!==''
+        }));
+        validated = new Set(tickets.filter(t=>t.validated).map(t=>t.id));
+        updateCounter(); save();
+        showOverlay(`${tickets.length} tickets importés`, true);
+        setTimeout(() => showOverlay('Ready to scan', true), 3000);
+      }});
+      e.target.value='';
+    });
+
+    load();
+  
+    // Open QR menu on hover
+    settingsIcon.addEventListener('mouseenter', () => {
+      settingsMenu.style.display = 'block';
+    });
+    settingsIcon.addEventListener('mouseleave', () => {
+      setTimeout(() => {
+        if (!settingsMenu.matches(':hover')) {
+          settingsMenu.style.display = 'none';
+        }
+      }, 100);
+    });
+    settingsMenu.addEventListener('mouseenter', () => {
+      settingsMenu.style.display = 'block';
+    });
+    settingsMenu.addEventListener('mouseleave', () => {
+      settingsMenu.style.display = 'none';
+    });
+</script>
+</body>
+</html>

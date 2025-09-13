@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Ticket Scanner</string>
+    <color name="ic_launcher_background">#10334D</color>
+</resources>
