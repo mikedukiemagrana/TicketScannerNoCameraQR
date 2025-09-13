@@ -7,6 +7,10 @@ import android.webkit.ValueCallback
 import android.net.Uri
 import android.content.Intent
 import androidx.activity.result.contract.ActivityResultContracts
+import android.webkit.ValueCallback
+import android.net.Uri
+import android.content.Intent
+import androidx.activity.result.contract.ActivityResultContracts
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -40,12 +44,36 @@ class MainActivity : AppCompatActivity() {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.allowFileAccess = true
+            settings.allowFileAccessFromFileURLs = true
+            settings.allowUniversalAccessFromFileURLs = true
         settings.databaseEnabled = true
         settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.mediaPlaybackRequiresUserGesture = true
 
         webView.webViewClient = object : WebViewClient() {}
-        webView.webChromeClient = WebChromeClient()
+        webView.webChromeClient = object : WebChromeClient() {
+                    override fun onShowFileChooser(
+                        view: WebView?,
+                        filePathCallback: ValueCallback<Array<Uri>>?,
+                        fileChooserParams: FileChooserParams?
+                    ): Boolean {
+                        this@MainActivity.filePathCallback = filePathCallback
+                        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = "*/*"
+                            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
+                                "text/csv",
+                                "text/comma-separated-values",
+                                "application/csv",
+                                "application/vnd.ms-excel",
+                                "text/plain"
+                            ))
+                        }
+                        val chooser = Intent.createChooser(intent, "Sélectionner un fichier CSV")
+                        fileChooserLauncher.launch(chooser)
+                        return true
+                    }
+                }
 
         // Load your local web app (no camera needed; Bluetooth scanner acts like a keyboard)
         webView.loadUrl("file:///android_asset/index.html")
